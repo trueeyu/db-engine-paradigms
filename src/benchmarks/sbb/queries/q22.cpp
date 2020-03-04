@@ -177,106 +177,142 @@ std::unique_ptr<Q22Builder::Q22> Q22Builder::getQuery() {
    auto result = Result();
    previous = result.resultWriter.shared.result->participate();
    auto r = make_unique<Q22>();
-
-   auto date = Scan("date");
-
-   auto supplier = Scan("supplier");
-   Select(
-       Expression().addOp(BF(primitives::sel_equal_to_Char_12_col_Char_12_val),
-                          Buffer(sel_supplier, sizeof(pos_t)),
-                          Column(supplier, "s_region"), Value(&r->region)));
-
-   auto part = Scan("part");
-   Select(Expression()
-              .addOp(BF(primitives::sel_less_equal_Char_9_col_Char_9_val),
-                     Buffer(sel_part_max, sizeof(pos_t)),
-                     Column(part, "p_brand1"), Value(&r->brand_max))
-              .addOp(BF(primitives::selsel_greater_equal_Char_9_col_Char_9_val),
-                     Buffer(sel_part_max, sizeof(pos_t)),
-                     Buffer(sel_part_min, sizeof(pos_t)),
-                     Column(part, "p_brand1"), Value(&r->brand_min)));
-
    auto lineorder = Scan("lineorder");
-   HashJoin(Buffer(lineorder_part, sizeof(pos_t)), conf.joinAll())
-       .addBuildKey(Column(part, "p_partkey"), Buffer(sel_part_min),
-                    conf.hash_sel_int32_t_col(),
-                    primitives::scatter_sel_int32_t_col)
-       .addBuildValue(Column(part, "p_brand1"), Buffer(sel_part_min),
-                      primitives::scatter_sel_Char_9_col,
-                      Buffer(p_brand1, sizeof(types::Char<9>)),
-                      primitives::gather_col_Char_9_col)
-       .addProbeKey(Column(lineorder, "lo_partkey"), conf.hash_int32_t_col(),
-                    primitives::keys_equal_int32_t_col);
-
-   // filter for p_brand1 is lineorder_supplier
-   HashJoin(Buffer(lineorder_supplier, sizeof(pos_t)), conf.joinAll())
-       .addBuildKey(Column(supplier, "s_suppkey"), Buffer(sel_supplier),
-                    conf.hash_sel_int32_t_col(),
-                    primitives::scatter_sel_int32_t_col)
-       .pushProbeSelVector(Buffer(lineorder_part),
-                           Buffer(lineorder_supplier_line, sizeof(pos_t)))
-       .addProbeKey(Column(lineorder, "lo_suppkey"), Buffer(lineorder_part),
-                    conf.hash_sel_int32_t_col(),
-                    Buffer(lineorder_supplier_line, sizeof(pos_t)),
-                    primitives::keys_equal_int32_t_col);
-
-   HashJoin(Buffer(lineorder_date, sizeof(pos_t)), conf.joinAll())
-       .addBuildKey(Column(date, "d_datekey"), conf.hash_int32_t_col(),
-                    primitives::scatter_int32_t_col)
-       .addBuildValue(Column(date, "d_year"), primitives::scatter_int32_t_col,
-                      Buffer(d_year, sizeof(int32_t)),
-                      primitives::gather_col_int32_t_col)
-       .pushProbeSelVector(Buffer(lineorder_supplier),
-                           Buffer(lineorder_date_part,
-                                  sizeof(pos_t))) // brand1 selection vector
-       .pushProbeSelVector(Buffer(lineorder_supplier_line),
-                           Buffer(lineorder_supplier_date,
-                                  sizeof(pos_t))) // lineorder selection vector
-       .addProbeKey(Column(lineorder, "lo_orderdate"),
-                    Buffer(lineorder_supplier_line),
-                    conf.hash_sel_int32_t_col(),
-                    Buffer(lineorder_supplier_date, sizeof(pos_t)),
-                    primitives::keys_equal_int32_t_col);
 
    HashGroup()
-       .addKey(Buffer(d_year),          //
-               conf.hash_int32_t_col(), //
-               primitives::keys_not_equal_int32_t_col,
-               primitives::partition_by_key_int32_t_col,
-               primitives::scatter_sel_int32_t_col,
-               primitives::keys_not_equal_row_int32_t_col,
-               primitives::partition_by_key_row_int32_t_col,
-               primitives::scatter_sel_row_int32_t_col,
-               primitives::gather_val_int32_t_col, Buffer(d_year))
-       .pushKeySelVec(Buffer(lineorder_date_part),
-                      Buffer(lineorder_date_part_grouped, sizeof(pos_t)))
-       .addKey(Buffer(p_brand1), Buffer(lineorder_date_part),
-               primitives::rehash_sel_Char_9_col,
-               primitives::keys_not_equal_sel_Char_9_col,
-               primitives::partition_by_key_sel_Char_9_col,
-               Buffer(lineorder_date_part_grouped, sizeof(pos_t)),
-               primitives::scatter_sel_Char_9_col,
-               primitives::keys_not_equal_row_Char_9_col,
-               primitives::partition_by_key_row_Char_9_col,
-               primitives::scatter_sel_row_Char_9_col,
-               primitives::gather_val_Char_9_col,
-               Buffer(p_brand1, sizeof(types::Char<9>)))
+       .addKey(Column(lineorder, "lo_shopmode"),
+               primitives::hash_Char_10_col,
+
+               primitives::keys_not_equal_Char_10_col,
+               primitives::partition_by_key_Char_10_col,
+               primitives::scatter_sel_Char_10_col,
+
+               primitives::keys_not_equal_row_Char_10_col,
+               primitives::partition_by_key_row_Char_10_col,
+               primitives::scatter_sel_row_Char_10_col,
+
+               primitives::gather_val_Char_10_col,
+               Buffer(lo_shopmode, sizeof(types::Char<10>)))
        .addValue(Column(lineorder, "lo_revenue"),
-                 Buffer(lineorder_supplier_date),
                  primitives::aggr_init_plus_int64_t_col,
-                 primitives::aggr_sel_plus_int64_t_col,
+                 primitives::aggr_plus_int64_t_col,
                  primitives::aggr_row_plus_int64_t_col,
                  primitives::gather_val_int64_t_col,
                  Buffer(sum_revenue, sizeof(types::Numeric<18, 2>)));
 
-   result.addValue("revenue", Buffer(sum_revenue))
-       .addValue("d_year", Buffer(d_year))
-       .addValue("p_brand1", Buffer(p_brand1))
-       .finalize();
+   result.addValue("sum_revenue", Buffer(sum_revenue))
+         .addValue("lo_shopmode", Buffer(lo_shopmode))
+         .finalize();
 
    r->rootOp = popOperator();
    return r;
 }
+
+//std::unique_ptr<Q22Builder::Q22> Q22Builder::getQuery() {
+//   using namespace vectorwise;
+//   auto result = Result();
+//   previous = result.resultWriter.shared.result->participate();
+//   auto r = make_unique<Q22>();
+//
+//   auto date = Scan("date");
+//
+//   auto supplier = Scan("supplier");
+//   Select(
+//       Expression().addOp(BF(primitives::sel_equal_to_Char_12_col_Char_12_val),
+//                          Buffer(sel_supplier, sizeof(pos_t)),
+//                          Column(supplier, "s_region"), Value(&r->region)));
+//
+//   auto part = Scan("part");
+//   Select(Expression()
+//              .addOp(BF(primitives::sel_less_equal_Char_9_col_Char_9_val),
+//                     Buffer(sel_part_max, sizeof(pos_t)),
+//                     Column(part, "p_brand1"), Value(&r->brand_max))
+//              .addOp(BF(primitives::selsel_greater_equal_Char_9_col_Char_9_val),
+//                     Buffer(sel_part_max, sizeof(pos_t)),
+//                     Buffer(sel_part_min, sizeof(pos_t)),
+//                     Column(part, "p_brand1"), Value(&r->brand_min)));
+//
+//   auto lineorder = Scan("lineorder");
+//   HashJoin(Buffer(lineorder_part, sizeof(pos_t)), conf.joinAll())
+//       .addBuildKey(Column(part, "p_partkey"), Buffer(sel_part_min),
+//                    conf.hash_sel_int32_t_col(),
+//                    primitives::scatter_sel_int32_t_col)
+//       .addBuildValue(Column(part, "p_brand1"), Buffer(sel_part_min),
+//                      primitives::scatter_sel_Char_9_col,
+//                      Buffer(p_brand1, sizeof(types::Char<9>)),
+//                      primitives::gather_col_Char_9_col)
+//       .addProbeKey(Column(lineorder, "lo_partkey"), conf.hash_int32_t_col(),
+//                    primitives::keys_equal_int32_t_col);
+//
+//   // filter for p_brand1 is lineorder_supplier
+//   HashJoin(Buffer(lineorder_supplier, sizeof(pos_t)), conf.joinAll())
+//       .addBuildKey(Column(supplier, "s_suppkey"), Buffer(sel_supplier),
+//                    conf.hash_sel_int32_t_col(),
+//                    primitives::scatter_sel_int32_t_col)
+//       .pushProbeSelVector(Buffer(lineorder_part),
+//                           Buffer(lineorder_supplier_line, sizeof(pos_t)))
+//       .addProbeKey(Column(lineorder, "lo_suppkey"), Buffer(lineorder_part),
+//                    conf.hash_sel_int32_t_col(),
+//                    Buffer(lineorder_supplier_line, sizeof(pos_t)),
+//                    primitives::keys_equal_int32_t_col);
+//
+//   HashJoin(Buffer(lineorder_date, sizeof(pos_t)), conf.joinAll())
+//       .addBuildKey(Column(date, "d_datekey"), conf.hash_int32_t_col(),
+//                    primitives::scatter_int32_t_col)
+//       .addBuildValue(Column(date, "d_year"), primitives::scatter_int32_t_col,
+//                      Buffer(d_year, sizeof(int32_t)),
+//                      primitives::gather_col_int32_t_col)
+//       .pushProbeSelVector(Buffer(lineorder_supplier),
+//                           Buffer(lineorder_date_part,
+//                                  sizeof(pos_t))) // brand1 selection vector
+//       .pushProbeSelVector(Buffer(lineorder_supplier_line),
+//                           Buffer(lineorder_supplier_date,
+//                                  sizeof(pos_t))) // lineorder selection vector
+//       .addProbeKey(Column(lineorder, "lo_orderdate"),
+//                    Buffer(lineorder_supplier_line),
+//                    conf.hash_sel_int32_t_col(),
+//                    Buffer(lineorder_supplier_date, sizeof(pos_t)),
+//                    primitives::keys_equal_int32_t_col);
+//
+//   HashGroup()
+//       .addKey(Buffer(d_year),          //
+//               conf.hash_int32_t_col(), //
+//               primitives::keys_not_equal_int32_t_col,
+//               primitives::partition_by_key_int32_t_col,
+//               primitives::scatter_sel_int32_t_col,
+//               primitives::keys_not_equal_row_int32_t_col,
+//               primitives::partition_by_key_row_int32_t_col,
+//               primitives::scatter_sel_row_int32_t_col,
+//               primitives::gather_val_int32_t_col, Buffer(d_year))
+//       .pushKeySelVec(Buffer(lineorder_date_part),
+//                      Buffer(lineorder_date_part_grouped, sizeof(pos_t)))
+//       .addKey(Buffer(p_brand1), Buffer(lineorder_date_part),
+//               primitives::rehash_sel_Char_9_col,
+//               primitives::keys_not_equal_sel_Char_9_col,
+//               primitives::partition_by_key_sel_Char_9_col,
+//               Buffer(lineorder_date_part_grouped, sizeof(pos_t)),
+//               primitives::scatter_sel_Char_9_col,
+//               primitives::keys_not_equal_row_Char_9_col,
+//               primitives::partition_by_key_row_Char_9_col,
+//               primitives::scatter_sel_row_Char_9_col,
+//               primitives::gather_val_Char_9_col,
+//               Buffer(p_brand1, sizeof(types::Char<9>)))
+//       .addValue(Column(lineorder, "lo_revenue"),
+//                 Buffer(lineorder_supplier_date),
+//                 primitives::aggr_init_plus_int64_t_col,
+//                 primitives::aggr_sel_plus_int64_t_col,
+//                 primitives::aggr_row_plus_int64_t_col,
+//                 primitives::gather_val_int64_t_col,
+//                 Buffer(sum_revenue, sizeof(types::Numeric<18, 2>)));
+//
+//   result.addValue("revenue", Buffer(sum_revenue))
+//       .addValue("d_year", Buffer(d_year))
+//       .addValue("p_brand1", Buffer(p_brand1))
+//       .finalize();
+//
+//   r->rootOp = popOperator();
+//   return r;
+//}
 
 std::unique_ptr<runtime::Query> q22_vectorwise(Database& db, size_t nrThreads,
                                                size_t vectorSize) {

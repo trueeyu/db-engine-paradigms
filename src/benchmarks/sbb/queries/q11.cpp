@@ -104,16 +104,10 @@ std::unique_ptr<Q11Builder::Q11> Q11Builder::getQuery() {
 
    auto lineorder = Scan("lineorder");
 
-   HashGroup()
-       .addValue(Column(lineorder, "lo_orderkey"),
-                 primitives::aggr_init_plus_int64_t_col,
-                 primitives::aggr_count_star,
-                 primitives::aggr_row_plus_int64_t_col,
-                 primitives::gather_val_int64_t_col,
-                 Buffer(count_lo_orderkey, sizeof(types::Numeric<18, 2>)));
-
-   result.addValue("count(lo_orderkey)", Buffer(count_lo_orderkey))
-         .finalize();
+   FixedAggregation(Expression().addOp(
+           primitives::aggr_static_count_star,
+	   Value(&r->count)
+   ));
 
    r->rootOp = popOperator();
    return r;

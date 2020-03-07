@@ -98,30 +98,17 @@ std::unique_ptr<Q21Builder::Q21> Q21Builder::getQuery() {
 
    auto lineorder = Scan("lineorder");
 
-   HashGroup()
-       .addValue(Column(lineorder, "lo_revenue"),
-                 primitives::aggr_init_plus_int64_t_col,
-                 primitives::aggr_plus_int64_t_col,
-                 primitives::aggr_row_plus_int64_t_col,
-                 primitives::gather_val_int64_t_col,
-                 Buffer(sum_revenue, sizeof(uint64_t)))
-       .addValue(Column(lineorder, "lo_extendedprice"),
-                 primitives::aggr_init_plus_int64_t_col,
-                 primitives::aggr_plus_int64_t_col,
-                 primitives::aggr_row_plus_int64_t_col,
-                 primitives::gather_val_int64_t_col,
-                 Buffer(sum_extend, sizeof(uint64_t)))
-       .addValue(Column(lineorder, "lo_ordtotalprice"),
-                 primitives::aggr_init_plus_int64_t_col,
-                 primitives::aggr_plus_int64_t_col,
-                 primitives::aggr_row_plus_int64_t_col,
-                 primitives::gather_val_int64_t_col,
-                 Buffer(sum_total, sizeof(uint64_t)));
+   FixedAggregation(Expression()
+			.addOp(primitives::aggr_static_plus_int64_t_col,
+				Value(&r->sum_revenue),
+				Column(lineorder, "lo_revenue"))
+			.addOp(primitives::aggr_static_plus_int64_t_col,
+				Value(&r->sum_extendedprice),
+				Column(lineorder, "lo_extendedprice"))
+			.addOp(primitives::aggr_static_plus_int64_t_col,
+				Value(&r->sum_ordtotalprice),
+				Column(lineorder, "lo_ordtotalprice")));
 
-   result.addValue("sum_revenue", Buffer(sum_revenue))
-	 .addValue("sum_extend", Buffer(sum_extend))
-	 .addValue("sum_total", Buffer(sum_total))
-         .finalize();
    r->rootOp = popOperator();
    return r;
 }
@@ -138,10 +125,12 @@ std::unique_ptr<runtime::Query> q21_vectorwise(Database& db, size_t nrThreads,
       Q21Builder builder(db, shared, vectorSize);
       auto query = builder.getQuery();
       /* auto found = */ query->rootOp->next();
-      auto leader = barrier();
-      if (leader)
-         result = move(
-             dynamic_cast<ResultWriter*>(query->rootOp.get())->shared.result);
+      //auto leader = barrier();
+      //if (leader)
+      //   result = move(
+      //       dynamic_cast<ResultWriter*>(query->rootOp.get())->shared.result);
+     
+	std::cout<<query->sum_revenue<<":"<<query->sum_extendedprice<<":"<<query->sum_ordtotalprice<<std::endl;	
    });
 
    return result;

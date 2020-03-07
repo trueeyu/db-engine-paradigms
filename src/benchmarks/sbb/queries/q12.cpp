@@ -112,16 +112,9 @@ std::unique_ptr<Q12Builder::Q12> Q12Builder::getQuery() {
                         Column(lineorder, "lo_orderdate"),
                         Value(&r->year_min)));
 
-   HashGroup()
-       .addValue(Buffer(filter),
-                 primitives::aggr_init_plus_int64_t_col,
-                 primitives::aggr_count_star,
-                 primitives::aggr_row_plus_int64_t_col,
-                 primitives::gather_val_int64_t_col,
-                 Buffer(count, sizeof(uint64_t)));
-
-   result.addValue("count(*)", Buffer(count))
-         .finalize();
+   FixedAggregation(Expression()
+                .addOp(primitives::aggr_static_count_star,
+                        Value(&r->count)));
 
    r->rootOp = popOperator();
    return r;

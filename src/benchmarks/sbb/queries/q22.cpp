@@ -330,8 +330,23 @@ std::unique_ptr<runtime::Query> q22_vectorwise(Database& db, size_t nrThreads,
       if (leader)
          result = move(
              dynamic_cast<ResultWriter*>(query->rootOp.get())->shared.result);
+
    });
 
+   auto checkResult = [&](BlockRelation* result) {
+      auto lo_shopmode = result->getAttribute("lo_shopmode");
+      auto sumAttr = result->getAttribute("sum_revenue");
+      for (auto& block : *result) {
+         auto elementsInBlock = block.size();
+         auto shopmode = reinterpret_cast<types::Char<10>*>(block.data(lo_shopmode));
+         auto sum = reinterpret_cast<types::Numeric<18, 2>*>(block.data(sumAttr));
+         for (size_t i = 0; i < elementsInBlock; ++i) {
+            std::cout <<  shopmode[i] <<  " | " << sum[i] << std::endl;
+         }
+      };
+   };
+
+   checkResult(result->result.get());
    return result;
 }
 

@@ -108,16 +108,11 @@ std::unique_ptr<Q13Builder::Q13> Q13Builder::getQuery() {
 
    auto lineorder = Scan("lineorder");
 
-   HashGroup()
-       .addValue(Column(lineorder, "lo_revenue"),
-                 primitives::aggr_init_plus_int64_t_col,
-                 primitives::aggr_plus_int64_t_col,
-                 primitives::aggr_row_plus_int64_t_col,
-                 primitives::gather_val_int64_t_col,
-                 Buffer(sum_revenue, sizeof(uint64_t)));
-
-   result.addValue("sum_revenue", Buffer(sum_revenue))
-         .finalize();
+   FixedAggregation(Expression()
+			.addOp(primitives::aggr_static_plus_int64_t_col,
+				Value(&r->sum_revenue),
+				Column(lineorder, "lo_revenue"))
+   );
 
    r->rootOp = popOperator();
    return r;

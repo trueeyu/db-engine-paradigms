@@ -31,6 +31,7 @@ struct Q11Builder : public vectorwise::QueryBuilder {
           types::Numeric<18, 2>::castString("3.00");
       types::Integer quantity_max = types::Integer(25);
       int64_t aggregator = 0;
+      int64_t count = 0;
       std::unique_ptr<vectorwise::Operator> rootOp;
    };
    Q11Builder(runtime::Database& db, vectorwise::SharedStateManager& shared,
@@ -68,6 +69,7 @@ struct Q12Builder : public vectorwise::QueryBuilder {
       types::Integer quantity_max = types::Integer(35);
       types::Integer quantity_min = types::Integer(26);
       int64_t aggregator = 0;
+      int64_t count = 0;
       std::unique_ptr<vectorwise::Operator> rootOp;
       types::Integer year_min = types::Integer(19920101);
    };
@@ -107,6 +109,7 @@ struct Q13Builder : public vectorwise::QueryBuilder {
       types::Integer quantity_max = types::Integer(35);
       types::Integer quantity_min = types::Integer(26);
       int64_t aggregator = 0;
+      int64_t sum_revenue;
       std::unique_ptr<vectorwise::Operator> rootOp;
    };
    Q13Builder(runtime::Database& db, vectorwise::SharedStateManager& shared,
@@ -144,6 +147,9 @@ struct Q21Builder : public vectorwise::QueryBuilder {
       types::Char<12> region = types::Char<12>::castString("AMERICA");
       types::Integer year_min = types::Integer(19920101);
       std::unique_ptr<vectorwise::Operator> rootOp;
+      int64_t sum_revenue = 0;
+      int64_t sum_extendedprice = 0;
+      int64_t sum_ordtotalprice = 0;
    };
    Q21Builder(runtime::Database& db, vectorwise::SharedStateManager& shared,
               size_t size = 1024)

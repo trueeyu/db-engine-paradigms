@@ -42,7 +42,8 @@ class HashmapSmall
       assert(exp < sizeof(hash_t) * 8);
       if (((size_t)1 << exp) < size / loadFactor) exp++;
       maxCapacity = ((size_t)1) << exp;
-      capacity = std::min((ref)256, maxCapacity);
+      maxCapacity = 8192;
+      capacity = std::min((ref)8192, maxCapacity);
       capLimit = capacity * loadFactor;
       mask = capacity - 1;
       entries = new ref[maxCapacity];

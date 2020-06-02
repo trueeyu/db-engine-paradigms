@@ -135,6 +135,8 @@ struct Q21Builder : public vectorwise::QueryBuilder {
    struct Q21 {
       types::Char<7> category = types::Char<7>::castString("MFGR#12");
       types::Char<12> region = types::Char<12>::castString("AMERICA");
+      int64_t sum_aaa = 0;
+      int64_t sum_bbb = 0;
 
       std::unique_ptr<vectorwise::Operator> rootOp;
    };

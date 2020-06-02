@@ -32,20 +32,16 @@ std::unique_ptr<Q21Builder::Q21> Q21Builder::getQuery() {
    previous = result.resultWriter.shared.result->participate();
    auto r = make_unique<Q21>();
 
-   auto customer = Scan("supplier");
+   auto part = Scan("part");
    auto lineorder = Scan("lineorder");
 
    HashJoin(Buffer(lineorder_part, sizeof(pos_t)), conf.joinAll())
-       .addBuildKey(Column(customer, "s_suppkey"),
+       .addBuildKey(Column(part, "p_partkey"),
                     conf.hash_int32_t_col(),
                     primitives::scatter_int32_t_col)
-      .addProbeKey(Column(lineorder, "lo_suppkey"),
+       .addProbeKey(Column(lineorder, "lo_partkey"),
                    conf.hash_int32_t_col(),
                    primitives::keys_equal_int32_t_col);
-//      .addBuildValue(Column(lineorder, "lo_revenue"),
-//                     primitives::scatter_int64_t_col,
-//                     Buffer(p_brand1, sizeof(types::Numeric<18, 2>)),
-//                     primitives::gather_col_int64_t_col);
 
    FixedAggregation(Expression()
                     .addOp(primitives::aggr_static_plus_int64_t_col,
